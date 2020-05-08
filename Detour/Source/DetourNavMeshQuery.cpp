@@ -2027,6 +2027,16 @@ dtStatus dtNavMeshQuery::findStraightPathNew(const float* startPos, const float*
 										  float* straightPath, unsigned char* straightPathFlags, dtPolyRef* straightPathRefs,
 										  int* straightPathCount, const int maxStraightPath, const int options) const
 {
+	dtAssert(m_nav);
+
+	if (!straightPathCount)
+		return DT_FAILURE | DT_INVALID_PARAM;
+
+	*straightPathCount = 0;
+
+	if (!straightPath || maxStraightPath <= 0)
+		return DT_FAILURE | DT_INVALID_PARAM;
+
 	// TODO: Should this be callers responsibility?
 	float closestStartPos[3];
 	if (dtStatusFailed(closestPointOnPolyBoundary(path[0], startPos, closestStartPos)))
@@ -2037,43 +2047,63 @@ dtStatus dtNavMeshQuery::findStraightPathNew(const float* startPos, const float*
 		return DT_FAILURE | DT_INVALID_PARAM;
 
 	dtStraightPathContext ctx;
-	dtStatus stat = initSlicedStraightPathSearch(closestStartPos, closestEndPos, path, pathSize, ctx);
-	if (dtStatusFailed(stat))
-		return stat;
+	dtStatus status = initSlicedStraightPathSearch(closestStartPos, closestEndPos, path, pathSize, ctx);
+	if (dtStatusFailed(status))
+		return status;
 
 	// Add start point.
-	stat = appendVertex(closestStartPos, DT_STRAIGHTPATH_START, path[0],
-						straightPath, straightPathFlags, straightPathRefs,
-						straightPathCount, maxStraightPath);
-	if (stat != DT_IN_PROGRESS)
-		return stat;
+	dtVcopy(&straightPath[0], closestStartPos);
+	if (straightPathFlags)
+		straightPathFlags[0] = DT_STRAIGHTPATH_START;
+	if (straightPathRefs)
+		straightPathRefs[0] = path[0];
+	++(*straightPathCount);
+
+	// If there is no space to append more vertices, return.
+	if (maxStraightPath == 1)
+		return DT_SUCCESS | DT_BUFFER_TOO_SMALL;
 
 	do
 	{
-		float vPos[3];
-		unsigned char vFlags;
-		dtPolyRef vRef;
-		stat = findNextStraightPathVertex(ctx, vPos, &vFlags, 0, &vRef, options);
-		if (dtStatusFailed(stat))
+		float pos[3];
+		unsigned char flags;
+		dtPolyRef ref;
+		status = findNextStraightPathVertex(ctx, pos, &flags, 0, &ref, options);
+		if (dtStatusFailed(status))
 			break;
 
-		dtStatus appendStatus = appendVertex(vPos, vFlags, vRef,
-											 straightPath, straightPathFlags, straightPathRefs,
-											 straightPathCount, maxStraightPath);
-		if (appendStatus != DT_IN_PROGRESS)
-			return appendStatus;
-	}
-	while (dtStatusInProgress(stat));
+		// Append new vertex or merge to previous if position is the same.
+		if (!dtVequal(&straightPath[((*straightPathCount)-1)*3], pos))
+		{
+			dtVcopy(&straightPath[(*straightPathCount)*3], pos);
+			++(*straightPathCount);
+		}
 
-	return stat;
+		const int vertexCount = (*straightPathCount);
+		if (straightPathFlags)
+			straightPathFlags[vertexCount-1] = flags;
+		if (straightPathRefs)
+			straightPathRefs[vertexCount-1] = ref;
+
+		// If there is no space to append more vertices, return.
+		if (dtStatusInProgress(status) && vertexCount >= maxStraightPath)
+			return DT_SUCCESS | DT_BUFFER_TOO_SMALL;
+	}
+	while (dtStatusInProgress(status));
+
+	return status;
 }
 
 // NB: startPos and endPos must lay inside the first and the last path polygon respectively
 dtStatus dtNavMeshQuery::initSlicedStraightPathSearch(const float* startPos, const float* endPos,
 													  const dtPolyRef* path, int pathSize, dtStraightPathContext& ctx) const
 {
-	if (!startPos || !endPos || !path || pathSize <= 0)
+	if (!startPos || !dtVisfinite(startPos) ||
+		!endPos || !dtVisfinite(endPos) ||
+		!path || pathSize <= 0 || !path[0])
+	{
 		return DT_FAILURE | DT_INVALID_PARAM;
+	}
 
 	dtVcopy(ctx.endPos, endPos);
 	ctx.path = path;
