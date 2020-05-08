@@ -1659,10 +1659,10 @@ dtStatus dtNavMeshQuery::finalizeSlicedFindPathPartial(const dtPolyRef* existing
 }
 
 // Returns whether the new corner is found
-static void checkCornerVertex(dtStraightPathContext& ctx, bool checkRight,
-							  dtStraightPathContext::Corner& rightVertex,
-							  dtStraightPathContext::Corner& leftVertex,
-							  const dtStraightPathContext::Corner& nextVertex)
+static inline void checkCornerVertex(dtStraightPathContext& ctx, bool checkRight,
+									 dtStraightPathContext::Corner& rightVertex,
+									 dtStraightPathContext::Corner& leftVertex,
+									 const dtStraightPathContext::Corner& nextVertex)
 {
 	dtStraightPathContext::Corner& currVertex = checkRight ? rightVertex : leftVertex;
 	dtStraightPathContext::Corner& otherVertex = checkRight ? leftVertex : rightVertex;
@@ -1672,8 +1672,8 @@ static void checkCornerVertex(dtStraightPathContext& ctx, bool checkRight,
 	if (dtTriArea2D(ctx.lastCorner, currVertex.point, nextVertex.point) * areaSign > 0.0f)
 		return;
 
-	if (dtVequal(ctx.lastCorner, currVertex.point) ||
-		dtTriArea2D(ctx.lastCorner, otherVertex.point, nextVertex.point) * areaSign > 0.0f)
+	if (dtTriArea2D(ctx.lastCorner, otherVertex.point, nextVertex.point) * areaSign > 0.0f ||
+		dtVequal(ctx.lastCorner, currVertex.point))
 	{
 		// Checked vertex is more restrictive, overwrite prevoius one
 		currVertex = nextVertex;
