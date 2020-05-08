@@ -159,6 +159,30 @@ public:
 	virtual void process(const dtMeshTile* tile, dtPoly** polys, dtPolyRef* refs, int count) = 0;
 };
 
+/// Straight path searching context for iterative advancement.
+/// Initial params are stored inside for consistency between calls.
+/// @ingroup detour
+struct dtStraightPathContext
+{
+	const dtPolyRef* path;
+	float endPos[3];
+	int pathSize;
+
+	struct Corner
+	{
+		dtPolyRef polyRef;
+		float point[3];
+		int fromIndex;
+		unsigned char flags;
+	};
+
+	float lastCorner[3];
+	int lastCornerIndex;
+	int i;
+	Corner corner;
+	bool cornerFound;
+};
+
 /// Provides the ability to perform pathfinding related queries against
 /// a navigation mesh.
 /// @ingroup detour
@@ -208,6 +232,17 @@ public:
 							  const dtPolyRef* path, const int pathSize,
 							  float* straightPath, unsigned char* straightPathFlags, dtPolyRef* straightPathRefs,
 							  int* straightPathCount, const int maxStraightPath, const int options = 0) const;
+
+	dtStatus findStraightPathNew(const float* startPos, const float* endPos,
+							  const dtPolyRef* path, const int pathSize,
+							  float* straightPath, unsigned char* straightPathFlags, dtPolyRef* straightPathRefs,
+							  int* straightPathCount, const int maxStraightPath, const int options = 0) const;
+
+	dtStatus initSlicedStraightPathSearch(const float* startPos, const float* endPos,
+										  const dtPolyRef* path, int pathSize, dtStraightPathContext& ctx) const;
+	dtStatus findNextStraightPathVertex(dtStraightPathContext& ctx,
+										float* outVertex, unsigned char* outFlags, unsigned char* outArea, dtPolyRef* outRef,
+										const int options = 0) const;
 
 	///@}
 	/// @name Sliced Pathfinding Functions
@@ -526,7 +561,7 @@ private:
 	dtStatus getEdgeMidPoint(dtPolyRef from, const dtPoly* fromPoly, const dtMeshTile* fromTile,
 							 dtPolyRef to, const dtPoly* toPoly, const dtMeshTile* toTile,
 							 float* mid) const;
-	
+
 	// Appends vertex to a straight path
 	dtStatus appendVertex(const float* pos, const unsigned char flags, const dtPolyRef ref,
 						  float* straightPath, unsigned char* straightPathFlags, dtPolyRef* straightPathRefs,

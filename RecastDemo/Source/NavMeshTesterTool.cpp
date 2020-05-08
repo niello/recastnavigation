@@ -37,6 +37,7 @@
 #include "DetourNavMeshBuilder.h"
 #include "DetourDebugDraw.h"
 #include "DetourCommon.h"
+#include "DetourAssert.h"
 
 #ifdef WIN32
 #	define snprintf _snprintf
@@ -862,6 +863,22 @@ void NavMeshTesterTool::recalc()
 				m_navQuery->findStraightPath(m_spos, epos, m_polys, m_npolys,
 											 m_straightPath, m_straightPathFlags,
 											 m_straightPathPolys, &m_nstraightPath, MAX_POLYS, m_straightPathOptions);
+
+				//!!!DBG TMP!
+				{
+					float straightPath[MAX_POLYS * 3];
+					unsigned char straightPathFlags[MAX_POLYS];
+					dtPolyRef straightPathPolys[MAX_POLYS];
+					int nstraightPath = 0;
+					m_navQuery->findStraightPathNew(m_spos, epos, m_polys, m_npolys,
+						straightPath, straightPathFlags,
+						straightPathPolys, &nstraightPath, MAX_POLYS, m_straightPathOptions);
+
+					dtAssert(nstraightPath == m_nstraightPath);
+					dtAssert(!memcmp(straightPath, m_straightPath, 3*sizeof(float)*nstraightPath));
+					dtAssert(!memcmp(straightPathFlags, m_straightPathFlags, sizeof(unsigned char)*nstraightPath));
+					dtAssert(!memcmp(straightPathPolys, m_straightPathPolys, sizeof(dtPolyRef)*nstraightPath));
+				}
 			}
 		}
 		else
